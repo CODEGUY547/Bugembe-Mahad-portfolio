@@ -2,63 +2,55 @@ const root = document.documentElement;
 const themeToggle = document.querySelector('.theme-toggle');
 const menuToggle = document.querySelector('.menu-toggle');
 const mobileMenu = document.querySelector('.mobile-menu');
-const meter = document.querySelector('.scroll-meter span');
-const indexNumber = document.querySelector('.index-number');
-const indexName = document.querySelector('.index-name');
-const storedTheme = localStorage.getItem('bm-theme');
+const progress = document.querySelector('.progress span');
 
-if (storedTheme === 'dark' || storedTheme === 'light') root.dataset.theme = storedTheme;
+const savedTheme = localStorage.getItem('bm-theme-v3');
+root.dataset.theme = savedTheme || 'light';
 
-themeToggle?.addEventListener('click', () => {
+function updateThemeLabel() {
   const next = root.dataset.theme === 'dark' ? 'light' : 'dark';
-  root.dataset.theme = next;
-  localStorage.setItem('bm-theme', next);
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', next === 'dark' ? '#07121b' : '#f1eee4');
+  themeToggle.setAttribute('aria-label', `Switch to ${next} theme`);
+}
+
+updateThemeLabel();
+
+themeToggle.addEventListener('click', () => {
+  root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
+  localStorage.setItem('bm-theme-v3', root.dataset.theme);
+  updateThemeLabel();
 });
 
-menuToggle?.addEventListener('click', () => {
+menuToggle.addEventListener('click', () => {
   const open = mobileMenu.classList.toggle('open');
   menuToggle.setAttribute('aria-expanded', String(open));
+  menuToggle.setAttribute('aria-label', open ? 'Close navigation' : 'Open navigation');
 });
 
-mobileMenu?.querySelectorAll('a').forEach((link) => link.addEventListener('click', () => {
-  mobileMenu.classList.remove('open');
-  menuToggle?.setAttribute('aria-expanded', 'false');
-}));
+document.querySelectorAll('a[href^="#"]').forEach((link) => {
+  link.addEventListener('click', () => {
+    mobileMenu.classList.remove('open');
+    menuToggle.setAttribute('aria-expanded', 'false');
+    menuToggle.setAttribute('aria-label', 'Open navigation');
+  });
+});
 
 const revealObserver = new IntersectionObserver((entries) => {
   entries.forEach((entry) => {
-    if (!entry.isIntersecting) return;
-    entry.target.classList.add('visible');
-    revealObserver.unobserve(entry.target);
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+      revealObserver.unobserve(entry.target);
+    }
   });
-}, { threshold: 0.1 });
+}, { threshold: 0.08, rootMargin: '0px 0px -40px' });
 
 document.querySelectorAll('.reveal').forEach((element) => revealObserver.observe(element));
 
-const observedSections = [...document.querySelectorAll('.observed-section')];
+function updateProgress() {
+  const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+  const amount = scrollable > 0 ? Math.min(100, (window.scrollY / scrollable) * 100) : 0;
+  progress.style.width = `${amount}%`;
+}
 
-const updateScrollMeter = () => {
-  const maximum = document.documentElement.scrollHeight - innerHeight;
-  meter.style.width = `${maximum > 0 ? (scrollY / maximum) * 100 : 0}%`;
-  const active = observedSections.reduce((current, section) => {
-    return section.getBoundingClientRect().top <= innerHeight * 0.42 ? section : current;
-  }, observedSections[0]);
-  if (active) {
-    indexNumber.textContent = active.dataset.index;
-    indexName.textContent = active.dataset.label;
-  }
-};
-
-addEventListener('scroll', updateScrollMeter, { passive: true });
-addEventListener('resize', updateScrollMeter);
-updateScrollMeter();
-
-document.querySelectorAll('a[href^="#"]').forEach((link) => {
-  link.addEventListener('click', (event) => {
-    const target = document.querySelector(link.getAttribute('href'));
-    if (!target) return;
-    event.preventDefault();
-    target.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
-  });
-});
+window.addEventListener('scroll', updateProgress, { passive: true });
+window.addEventListener('resize', updateProgress);
+updateProgress();
